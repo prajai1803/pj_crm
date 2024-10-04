@@ -32,4 +32,4 @@ urlpatterns = [
 if settings.DEBUG:  # Serve media files only in development
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# urlpatterns += staticfiles_urlpatterns()
+urlpatterns += staticfiles_urlpatterns()
