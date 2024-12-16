@@ -48,7 +48,7 @@ def login(request):
 @api_view(['PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def update_user(request):
-    user = request.user  # Get the currently authenticated user
+    user = request.user
     serializer = UpdateUserSerializer(user, data=request.data, partial=True)  # Set partial=True for PATCH requests
 
     if serializer.is_valid():

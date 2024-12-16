@@ -53,6 +53,7 @@ class UpdateUserSerializer(serializers.ModelSerializer):
         instance.full_name = validated_data.get('full_name', instance.full_name)
         instance.date_of_birth = validated_data.get('date_of_birth', instance.date_of_birth)
         instance.location = validated_data.get('location', instance.location)
+        instance.gender = validated_data.get('gender', instance.gender)
         instance.profile_picture = validated_data.get('profile_picture', instance.profile_picture)
         instance.device_id = validated_data.get('device_id', instance.device_id)
         instance.notification_token = validated_data.get('notification_token', instance.notification_token)
