@@ -8,7 +8,7 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id','user_id','email', 'full_name','contact_number','email_verified','contact_number_verified','user_type','date_of_birth','gender','location', 'profile_picture', 'device_id', 'notification_token']
+        fields = ['id','email', 'full_name','contact_number','email_verified','contact_number_verified','user_type','date_of_birth','gender','location', 'profile_picture', 'device_id', 'notification_token', 'organization_id']
 
 
 class LoginSerializer(serializers.Serializer):
@@ -46,7 +46,7 @@ class UpdateUserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(read_only=True)
     class Meta:
         model = CustomUser
-        fields = ['id','user_id','email', 'full_name','contact_number','email_verified','contact_number_verified','user_type','gender','date_of_birth','location', 'profile_picture', 'device_id', 'notification_token']  # Email included for response
+        fields = ['id','email', 'full_name','contact_number','email_verified','contact_number_verified','user_type','gender','date_of_birth','location', 'profile_picture', 'device_id', 'notification_token']  # Email included for response
 
     def update(self, instance, validated_data):
         # Update only the allowed fields (exclude 'email')

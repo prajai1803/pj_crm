@@ -4,6 +4,7 @@ from django.db import models
 import uuid
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.db import models
+from organizations.models import Organization
 
 USER_TYPES = (("Admin", "Admin"),("Telecaller","Telecaller"))
 GENDER_CHOICES = [
@@ -34,17 +35,17 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email =email,full_name = full_name,user_type = user_type, contact_number=contact_number, password=password, **extra_fields)
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    user_id = models.CharField(max_length=100, unique=True,default=uuid.uuid4,editable= False)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, null=True, blank=True, related_name='users')
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=255)
-    location = models.CharField(max_length=20,null=True,blank=True)
-    contact_number = models.CharField(max_length=10,null=True,blank=True)
+    location = models.CharField(max_length=20, null=True, blank=True)
+    contact_number = models.CharField(max_length=10, null=True, blank=True)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True)
-    device_id = models.CharField(max_length=20,null=True,blank=True)
-    notification_token = models.CharField(max_length=50,null=True,blank=True)
-    user_type = models.CharField(max_length=30, choices=USER_TYPES, null=True,blank=True)
-    email_verified = models.BooleanField(default=False,null=True,blank=True)
-    contact_number_verified = models.BooleanField(default=False,null=True,blank=True)
+    device_id = models.CharField(max_length=20, null=True, blank=True)
+    notification_token = models.CharField(max_length=50, null=True, blank=True)
+    user_type = models.CharField(max_length=30, choices=USER_TYPES, null=True, blank=True)
+    email_verified = models.BooleanField(default=False, null=True, blank=True)
+    contact_number_verified = models.BooleanField(default=False, null=True, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
 

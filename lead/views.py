@@ -9,6 +9,7 @@ from rest_framework import status
 from lead.serializers import LeadSerializer,LeadCardSerializer
 from .models import Lead
 from rest_framework.pagination import PageNumberPagination
+import json
 
 @api_view(['GET'])
 def lead_dropdowns(request):
@@ -31,7 +32,20 @@ def get_all_leads(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_lead_cards(request):
-    leads = Lead.objects.all().order_by('-updated_on')
+    user_id = request.user.id
+    lead_status = None
+    lead_status_parse = []
+    try:
+        lead_status = request.query_params.get('lead_status')
+        lead_status_parse = json.loads(lead_status)
+    except:
+        lead_status = []  
+        
+    if lead_status_parse:
+        leads = Lead.objects.filter(lead_status__in = lead_status_parse, assigned = 1).order_by("-updated_on")
+    else:
+        leads = Lead.objects.filter(assigned = 1).order_by('-updated_on')
+
     paginator = PageNumberPagination()
     result_page = paginator.paginate_queryset(leads, request)
     serializer = LeadCardSerializer(result_page, many=True)

@@ -10,4 +10,4 @@ class LeadSerializer(serializers.ModelSerializer):
 class LeadCardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lead
-        fields = ['id','lead_name','contact_number','lead_status']
+        fields = ['id','lead_name','contact_number','lead_status',"assigned"]
