@@ -15,4 +15,4 @@ class LeadCardSerializer(serializers.ModelSerializer):
 class CallLogsSerializer(serializers.ModelSerializer):
     class Meta:
         model = CallLogs
-        fields = '__all__'
+        fields = '__all__'  
