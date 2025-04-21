@@ -1,1 +1,75 @@
-/venv
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.so
+
+# Django specific
+*.log
+*.pot
+*.pyc
+*.mo
+*.db
+*.sqlite3
+*.sqlite3-journal
+
+# Environment
+.env
+.env.*
+.venv/
+venv/
+ENV/
+env/
+*.env
+
+# VS Code / PyCharm / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Migrations (optional – only if you regenerate them each time)
+# **/*/migrations/
+# !**/migrations/__init__.py
+
+# Static and media (if collected/generated locally)
+staticfiles/
+static/
+media/
+
+# Coverage reports
+htmlcov/
+.coverage
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# pytest
+.pytest_cache/
+
+# Build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Docker
+*.pid
+*.seed
+
+# Celery
+celerybeat-schedule
+celerybeat.pid

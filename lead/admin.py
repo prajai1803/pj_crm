@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from lead.models import Lead
+from lead.models import Lead,LeadSource,LeadStatus
 
 # Register your models here.
 
@@ -8,4 +8,6 @@ from lead.models import Lead
 class AuthorAdmin(admin.ModelAdmin):
     pass
 
+admin.site.register(LeadSource, AuthorAdmin)
+admin.site.register(LeadStatus, AuthorAdmin)
 admin.site.register(Lead, AuthorAdmin)
