@@ -6,18 +6,26 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 
 class CustomUserSerializer(serializers.ModelSerializer):
+    organization_name = serializers.SerializerMethodField()
     class Meta:
         model = CustomUser
-        fields = ['id','email', 'full_name','contact_number','email_verified','contact_number_verified','user_type','date_of_birth','gender','location', 'profile_picture', 'device_id', 'notification_token', 'organization_id']
+        fields = ['id','email', 'full_name','contact_number','email_verified','contact_number_verified','user_type','date_of_birth','gender','location', 'profile_picture', 'device_id', 'notification_token', 'organization_id', 'organization_name']
+    
+    def get_organization_name(self, obj):
+        return obj.organization.name if obj.organization else None
 
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-
+    device_id = serializers.CharField(required=False, allow_blank=True, allow_null=True )
+    notification_token = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    
     def validate(self, data):
         email = data.get('email', '')
         password = data.get('password', '')
+        device_id = data.get('device_id', '')
+        notification_token = data.get('notification_token', '')
 
         user = authenticate(email=email, password=password)
         if not user:
@@ -25,6 +33,10 @@ class LoginSerializer(serializers.Serializer):
 
         if not user.is_active:
             raise AuthenticationFailed('User is inactive.')
+        
+        user.device_id = device_id
+        user.notification_token = notification_token
+        user.save(update_fields=['device_id', 'notification_token'])
 
         # Combine user details and tokens into a single object
         user_data = CustomUserSerializer(user).data

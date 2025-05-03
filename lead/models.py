@@ -13,6 +13,17 @@ class LeadSource(models.Model):
 
     def __str__(self):
         return self.name
+    
+class LeadGender(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_on = models.DateTimeField(auto_now_add=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='lead_gender', null=True)
+
+
+    def __str__(self):
+        return self.name
 
 class LeadStatus(models.Model):
     name = models.CharField(max_length=100)
@@ -27,24 +38,13 @@ class LeadStatus(models.Model):
         return self.name
 
 class Lead(models.Model):
-    
-    GENDER_CHOICES = [
-        ('Male', 'Male'),
-        ('Female', 'Female'),
-        ('Other', 'Other'),
-    ]
-    
-
-
+        
     lead_name = models.CharField(max_length=255)
-    contact_number = models.CharField(max_length=15, unique=True)
+    contact_number = models.CharField(max_length=15)
     lead_source = models.ForeignKey(LeadSource, on_delete=models.SET_NULL, null=True, blank=True)
     lead_status = models.ForeignKey(LeadStatus, on_delete=models.SET_NULL, null=True)
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True)
-    profession = models.CharField(max_length=255, null=True, blank=True)
+    gender = models.ForeignKey(LeadGender, on_delete=models.SET_NULL, null=True, blank=True)
     email = models.EmailField(max_length=255, null=True, blank=True)
-    qualification = models.CharField(max_length=255, null=True, blank=True)
-    annual_income = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     created_by = models.ForeignKey(CustomUser, related_name='leads_created', on_delete=models.SET_NULL, null=True, blank=True)
     assigned = models.ForeignKey(CustomUser, related_name='leads_assigned', on_delete=models.SET_NULL, null=True, blank=True)
@@ -52,15 +52,25 @@ class Lead(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='leads', null=True)
+    # changable
+    qualification = models.CharField(max_length=255, null=True, blank=True)
+    profession = models.CharField(max_length=255, null=True, blank=True)
+    annual_income = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     
     
 
     def __str__(self):
         return self.lead_name
-    
 
+class LeadHistory(models.Model):
+    lead_id = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='status_history')
+    status = models.ForeignKey(LeadStatus, on_delete=models.SET_NULL, null=True)
+    created_on = models.DateTimeField(auto_now_add=True)
+    changed_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
 
-    
+    def __str__(self):
+        return f"{self.lead.lead_name} ➡ {self.status} @ {self.created_on}"
+        
 
 class CallLogs(models.Model):
 
