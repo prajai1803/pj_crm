@@ -24,6 +24,17 @@ class LeadGender(models.Model):
 
     def __str__(self):
         return self.name
+    
+class LeadFollowUp(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_on = models.DateTimeField(auto_now_add=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='lead_follow_up', null=True)
+
+
+    def __str__(self):
+        return self.name
 
 class LeadStatus(models.Model):
     name = models.CharField(max_length=100)
@@ -69,7 +80,7 @@ class LeadHistory(models.Model):
     changed_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.lead.lead_name} ➡ {self.status} @ {self.created_on}"
+        return f"{self.lead_id.lead_name} ➡ {self.status}"
         
 
 class CallLogs(models.Model):
@@ -88,8 +99,8 @@ class CallLogs(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='call_logs', null=True)
 
     def __str__(self):
-        return self.lead_id
-    
+        return str(self.lead_id)
 
-    
+
+
 

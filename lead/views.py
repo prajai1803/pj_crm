@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from lead.serializers import LeadSerializer, LeadCardSerializer, CallLogsSerializer
 from .models import Lead, CallLogs, LeadSource, LeadStatus,LeadGender
+from accounts.models import CustomUser
 from rest_framework.pagination import PageNumberPagination
 import json
 from utils.color_prints import ColorPrintUtils
@@ -91,32 +92,63 @@ def get_lead(request, lead_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_lead_cards(request):
-    user_id = request.user.id
+    user = request.user
+    user_id = user.id
+    user_type = user.user_type
+    organization = user.organization  # assuming this exists
+
     lead_status_parse = []
-    
     try:
         lead_status = request.query_params.get('lead_status')
         if lead_status:
             lead_status_parse = json.loads(lead_status)
     except json.JSONDecodeError:
         lead_status_parse = []
-        
-    try:
-        if lead_status_parse:
-            leads = Lead.objects.filter(
-                lead_status__in=lead_status_parse, assigned=1
-            ).order_by("-updated_on")
-        else:
-            leads = Lead.objects.filter(assigned=user_id).order_by('-updated_on')
 
+    try:
+        # Base queryset
+        if user_type == 'Admin':
+            leads = Lead.objects.filter(organization=organization)
+        elif user_type == 'Telecaller':
+            leads = Lead.objects.filter(assigned=user_id)
+        else:
+            return error_response(message="Unauthorized user type")
+
+        if lead_status_parse:
+            leads = leads.filter(lead_status__in=lead_status_parse)
+
+        # Annotated status counts
+        status_map = {
+            "fresh": "Fresh",
+            "follow": "Follow",
+            "won": "Won",
+            "close": "Close",
+        }
+
+        status_counts = {}
+        for key, status_name in status_map.items():
+            count = leads.filter(lead_status__name__iexact=status_name).count()
+            status_counts[key] = count
+
+        # Paginate and serialize
+        leads = leads.order_by("-updated_on")
         paginator = PageNumberPagination()
         result_page = paginator.paginate_queryset(leads, request)
         serializer = LeadCardSerializer(result_page, many=True)
-        paginated_response = paginator.get_paginated_response(serializer.data)
-        return success_response(data=paginated_response.data)
+        paginated_data = paginator.get_paginated_response(serializer.data).data
+
+        # Merge custom counts into paginated data
+        response_data = {
+            **status_counts,
+            **paginated_data,
+        }
+
+        return success_response(data=response_data)
 
     except Exception as e:
-        return error_response(message=str(e))
+        ColorPrintUtils.error_print(e)
+        return error_response(message=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 
