@@ -102,5 +102,29 @@ class CallLogs(models.Model):
         return str(self.lead_id)
 
 
+# Lead Reminders
+class LeadReminder(models.Model):
+    lead_id = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='lead_reminder')
+    title = models.TextField()
+    description = models.TextField(max_length=225, null=True, blank=True)
+    follow_up = models.ForeignKey(LeadFollowUp, on_delete=models.SET_NULL, null=True)
+    meeting_link = models.URLField(max_length=255, null=True, blank=True)
+    reminder_date = models.DateTimeField()
+    created_on = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='lead_reminder', null=True)
+
+    def __str__(self):
+        return str(self.title)
+
+class LeadReminderGuest(models.Model):
+    lead_reminder = models.ForeignKey(LeadReminder, on_delete=models.CASCADE, related_name='guests')
+    email = models.EmailField()
+
+    def __str__(self):
+        return self.email
+
+
+
 
 

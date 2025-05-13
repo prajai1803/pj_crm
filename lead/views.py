@@ -6,8 +6,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from lead.serializers import LeadSerializer, LeadCardSerializer, CallLogsSerializer
+from lead.serializers import LeadReminderSerializer, LeadSerializer, LeadCardSerializer, CallLogsSerializer
 from .models import Lead, CallLogs, LeadSource, LeadStatus,LeadGender
+from .models import LeadReminder, LeadReminderGuest
 from accounts.models import CustomUser
 from rest_framework.pagination import PageNumberPagination
 import json
@@ -220,3 +221,21 @@ def add_call_log(request):
             "data": serializer.data
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Lead Reminder API
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_lead_reminder(request):
+    serializer = LeadReminderSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return success_response(message='message', data=serializer.data)
+    return error_response(message=serializer.errors)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_lead_reminder(request, pk):
+    reminder = get_object_or_404(LeadReminder, pk=pk)
+    reminder.delete()
+    return Response({"detail": "Deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
