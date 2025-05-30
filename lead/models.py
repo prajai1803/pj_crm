@@ -49,7 +49,6 @@ class LeadStatus(models.Model):
         return self.name
 
 class Lead(models.Model):
-        
     lead_name = models.CharField(max_length=255)
     contact_number = models.CharField(max_length=15)
     lead_source = models.ForeignKey(LeadSource, on_delete=models.SET_NULL, null=True, blank=True)

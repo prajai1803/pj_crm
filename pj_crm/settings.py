@@ -62,7 +62,7 @@ ROOT_URLCONF = 'pj_crm.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -160,3 +160,11 @@ SWAGGER_SETTINGS = {
     },
     'USE_SESSION_AUTH': False,
 }
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'privimtechofficial@gmail.com'
+EMAIL_HOST_PASSWORD = 'eseo noye pjpo lirw'  # Use App Password, not your Gmail password!
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

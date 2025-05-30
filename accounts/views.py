@@ -13,8 +13,11 @@ from accounts.serializers import CustomUserSerializer, LoginSerializer, UpdateUs
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework.exceptions import AuthenticationFailed
+from django.template.loader import render_to_string
+
 
 from utils.color_prints import ColorPrintUtils
+from utils.email.send_mail import EmailSender
 from .swagger_schemas import login_schema, update_profile_schema
 
 from utils.response import error_response, success_response
@@ -99,8 +102,19 @@ def send_otp(request):
             'otp': otp,
         }
     )
+    
+    context = {
+        'user': user,
+        'reset_link': otp,
+        'site_name': 'MyApp',
+        'year': 2025
+    }
 
-    # TODO: Send the OTP via email using send_mail or any other email service
+    html_content = render_to_string('email/reset_password.html', context)
+
+    
+    eamilSender = EmailSender(to_emails=["prajai1801@gmail.com"], subject="Your OTP Code", message=f"Your OTP code is: {otp}")
+    eamilSender.send_html(html_content=html_content)
 
     action = "created" if created else "updated"
     ColorPrintUtils.success_print(f"OTP {action} for {email}")

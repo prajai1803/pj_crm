@@ -7,7 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from lead.serializers import LeadReminderSerializer, LeadSerializer, LeadCardSerializer, CallLogsSerializer
-from .models import Lead, CallLogs, LeadSource, LeadStatus,LeadGender
+from .models import Lead, CallLogs
+from lead.models import LeadFollowUp, LeadSource, LeadStatus,LeadGender
 from .models import LeadReminder, LeadReminderGuest
 from accounts.models import CustomUser
 from rest_framework.pagination import PageNumberPagination
@@ -24,12 +25,14 @@ def lead_initial_data(request):
         lead_sources = LeadSource.objects.filter(organization=1).values('id', 'name')
         lead_statuses = LeadStatus.objects.filter(organization=1).values('id', 'name', 'name_alias')
         lead_genders = LeadGender.objects.filter(organization=1).values('id', 'name')
+        lead_follow_ups = LeadFollowUp.objects.filter(organization=1).values('id', 'name')
 
         return success_response(
             data={
                 "lead_sources": list(lead_sources),
                 "lead_statuses": list(lead_statuses),
-                "lead_genders": list(lead_genders)
+                "lead_genders": list(lead_genders),
+                "lead_follow_ups": list(lead_follow_ups),
             },
             status_code=200,
             message='Successfully Fetched',
@@ -239,3 +242,45 @@ def delete_lead_reminder(request, pk):
     reminder = get_object_or_404(LeadReminder, pk=pk)
     reminder.delete()
     return Response({"detail": "Deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def fetch_reminder(request):
+    try:
+        query = request.query_params
+        lead_id = query.get('lead_id')
+
+        user = request.user
+        user_id = user.id
+        user_type = user.user_type
+        organization = user.organization
+
+        # Fetch reminders based on user role or lead_id
+        if lead_id:
+            reminders = LeadReminder.objects.filter(lead_id=lead_id).order_by('-created_on')
+        else:
+            if user_type == 'Admin':
+                reminders = LeadReminder.objects.filter(organization=organization).order_by('-created_on')
+            elif user_type == 'Telecaller':
+                reminders = LeadReminder.objects.filter(created_by=user_id).order_by('-created_on')
+            else:
+                return error_response(message="Unauthorized user type")
+
+        # Paginate the queryset
+        paginator = PageNumberPagination()
+        paginator.page_size = 10  # Default page size; you can allow dynamic via query param
+        paginated_reminders = paginator.paginate_queryset(reminders, request)
+        serializer = LeadReminderSerializer(paginated_reminders, many=True)
+
+        # Custom formatted response
+        paginated_data = {
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "results": serializer.data
+        }
+
+        return success_response(data=paginated_data, message="Successfully fetched reminders")
+    
+    except Exception as e:
+        return error_response(message=f"An error occurred: {str(e)}")

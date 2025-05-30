@@ -30,42 +30,52 @@ class LeadReminderGuestSerializer(serializers.ModelSerializer):
 
 
 class LeadReminderSerializer(serializers.ModelSerializer):
-    guests = serializers.ListField(
+    guest_emails = serializers.ListField(
         child=serializers.EmailField(),
         write_only=True,
         required=False
     )
-    guest_emails = serializers.SerializerMethodField(read_only=True)
+    # add read-only version
+    guest_emails_read = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = LeadReminder
         fields = '__all__'
-        extra_fields = ['guests', 'guest_emails']  # for clarity
+        extra_fields = ['guest_emails', 'guest_emails_read']  # optional clarity
 
-    def get_guest_emails(self, obj):
+    def get_guest_emails_read(self, obj):
         return [guest.email for guest in obj.guests.all()]
 
+    def to_representation(self, instance):
+        # Get the default representation
+        rep = super().to_representation(instance)
+        # Add guest_emails as read field (from guest_emails_read)
+        rep['guest_emails'] = rep.pop('guest_emails_read', [])
+        return rep
+
     def create(self, validated_data):
-        guests = validated_data.pop('guests', [])
+        guest_emails = validated_data.pop('guest_emails', [])
         lead_reminder = LeadReminder.objects.create(**validated_data)
         LeadReminderGuest.objects.bulk_create([
             LeadReminderGuest(lead_reminder=lead_reminder, email=email)
-            for email in guests
+            for email in guest_emails
         ])
         return lead_reminder
 
     def update(self, instance, validated_data):
-        guests = validated_data.pop('guests', None)
+        guest_emails = validated_data.pop('guest_emails', None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        if guests is not None:
+        if guest_emails is not None:
             instance.guests.all().delete()
             LeadReminderGuest.objects.bulk_create([
                 LeadReminderGuest(lead_reminder=instance, email=email)
-                for email in guests
+                for email in guest_emails
             ])
 
         return instance
+
+
