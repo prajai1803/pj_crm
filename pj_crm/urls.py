@@ -11,6 +11,8 @@ from rest_framework import permissions
 from accounts import ulrs as account_urls
 from lead import urls as lead_urls
 from notification import urls as notification_urls
+from django.conf import settings
+from django.conf.urls.static import static
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -29,7 +31,7 @@ urlpatterns = [
     path("lead/", include(lead_urls)),
     path('notification/', include(notification_urls)),
 ]
-
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
