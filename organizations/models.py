@@ -11,7 +11,7 @@ class Organization(models.Model):
     contact_number = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(unique=True)
     website = models.URLField(blank=True, null=True)
-    logo = models.ImageField(upload_to='organization_logos/', blank=True, null=True)
+    logo = models.ImageField(upload_to='media/organization_logos/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
