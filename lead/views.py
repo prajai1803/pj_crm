@@ -99,7 +99,7 @@ def get_all_lead_cards(request):
     user = request.user
     user_id = user.id
     user_type = user.user_type
-    organization = user.organization  # assuming this exists
+    organization = user.organization
 
     lead_status_parse = []
     try:
@@ -110,38 +110,42 @@ def get_all_lead_cards(request):
         lead_status_parse = []
 
     try:
-        # Base queryset
+        # Base queryset (unfiltered)
         if user_type == 'Admin':
-            leads = Lead.objects.filter(organization=organization)
+            base_leads = Lead.objects.filter(organization=organization)
         elif user_type == 'Telecaller':
-            leads = Lead.objects.filter(assigned=user_id)
+            base_leads = Lead.objects.filter(assigned=user_id)
         else:
             return error_response(message="Unauthorized user type")
 
-        if lead_status_parse:
-            leads = leads.filter(lead_status__in=lead_status_parse)
-
-        # Annotated status counts
+        # ✅ Count statuses BEFORE any filtering
         status_map = {
             "fresh": "Fresh",
-            "follow": "Follow",
+            "follow": "Follow Up",
             "won": "Won",
+            "re-enquired": "Re-Enquired",
             "close": "Close",
         }
 
         status_counts = {}
         for key, status_name in status_map.items():
-            count = leads.filter(lead_status__name__iexact=status_name).count()
+            count = base_leads.filter(lead_status__name__iexact=status_name).count()
             status_counts[key] = count
 
-        # Paginate and serialize
+        # ✅ Now apply lead_status filter if needed (only for the list)
+        leads = base_leads
+        if lead_status_parse:
+            leads = leads.filter(lead_status__in=lead_status_parse)
+
         leads = leads.order_by("-updated_on")
+
+        # Paginate and serialize
         paginator = PageNumberPagination()
         result_page = paginator.paginate_queryset(leads, request)
         serializer = LeadCardSerializer(result_page, many=True)
         paginated_data = paginator.get_paginated_response(serializer.data).data
 
-        # Merge custom counts into paginated data
+        # Merge counts with paginated data
         response_data = {
             **status_counts,
             **paginated_data,
@@ -152,6 +156,7 @@ def get_all_lead_cards(request):
     except Exception as e:
         ColorPrintUtils.error_print(e)
         return error_response(message=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 
@@ -284,3 +289,55 @@ def fetch_reminder(request):
     
     except Exception as e:
         return error_response(message=f"An error occurred: {str(e)}")
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def lead_bulk_add(request):
+    user = request.user
+    data = request.data.copy()
+    leads_data = data.get('leads', [])
+
+    if not leads_data:
+        return error_response(message='No leads data provided')
+
+    organization_id = user.organization.id
+
+    stats = {
+        "total_leads": len(leads_data),
+        "inserts": 0,
+        "duplicate": 0,
+        "rejected": 0
+    }
+
+    for lead_data in leads_data:
+        # Add metadata
+        lead_data['created_by'] = user.id
+        lead_data['updated_by'] = user.id
+        lead_data['organization'] = organization_id
+        
+
+        if not lead_data.get('assigned'):
+            lead_data['assigned'] = user.id
+
+        contact_number = lead_data.get('contact_number')
+        is_duplicate = False
+
+        if contact_number:
+            if Lead.objects.filter(organization_id=organization_id, contact_number=contact_number).exists():
+                stats['duplicate'] += 1
+                is_duplicate = True
+
+        if is_duplicate:
+            continue
+
+        serializer = LeadSerializer(data=lead_data)
+        if serializer.is_valid():
+            serializer.save()
+            stats['inserts'] += 1
+        else:
+            stats['rejected'] += 1
+
+    return success_response(data=stats, message='Bulk lead operation summary')
+
+
+    
