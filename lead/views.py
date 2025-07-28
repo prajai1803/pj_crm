@@ -6,33 +6,38 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from lead.serializers import LeadReminderSerializer, LeadSerializer, LeadCardSerializer, CallLogsSerializer
-from .models import Lead, CallLogs
+from lead.serializers import LeadReminderSerializer, LeadSerializer, LeadCardSerializer, CallLogSerializer
+from .models import Lead, CallLog
 from lead.models import LeadFollowUp, LeadSource, LeadStatus,LeadGender
 from .models import LeadReminder, LeadReminderGuest
 from accounts.models import CustomUser
 from rest_framework.pagination import PageNumberPagination
 import json
 from utils.color_prints import ColorPrintUtils
-from django.db.models import F
+from django.db.models import F, Count, Q
 from utils.response import success_response, error_response
 from .swagger_schemas import get_lead_schema, add_lead
 
 
 @api_view(['GET'])
 def lead_initial_data(request):
+    user = request.user
+    user_id = user.id
+    user_type = user.user_type
+    organization = user.organization
     try:
-        lead_sources = LeadSource.objects.filter(organization=1).values('id', 'name')
-        lead_statuses = LeadStatus.objects.filter(organization=1).values('id', 'name', 'name_alias')
-        lead_genders = LeadGender.objects.filter(organization=1).values('id', 'name')
-        lead_follow_ups = LeadFollowUp.objects.filter(organization=1).values('id', 'name')
-
+        lead_sources = LeadSource.objects.filter(organization=organization).values('id', 'name')
+        lead_statuses = LeadStatus.objects.filter(organization=organization).values('id', 'name', 'name_alias')
+        lead_genders = LeadGender.objects.filter(organization=organization).values('id', 'name')
+        lead_follow_ups = LeadFollowUp.objects.filter(organization=organization).values('id', 'name')
+        users = CustomUser.objects.filter(organization=organization).values('id', 'full_name')
         return success_response(
             data={
                 "lead_sources": list(lead_sources),
                 "lead_statuses": list(lead_statuses),
                 "lead_genders": list(lead_genders),
                 "lead_follow_ups": list(lead_follow_ups),
+                "users": list(users),
             },
             status_code=200,
             message='Successfully Fetched',
@@ -59,6 +64,8 @@ def create_lead(request):
         data = request.data.copy()
         contact_number = data.get('contact_number')
         organization = data.get('organization')  # or adjust according to your model
+        
+        print("User organization ID:", organization)
 
         # Check for existing lead
         if Lead.objects.filter(contact_number=contact_number, organization=organization).exists():
@@ -220,7 +227,7 @@ def delete_lead(request, lead_id):
 
 @api_view(['POST'])
 def add_call_log(request):
-    serializer = CallLogsSerializer(data=request.data)
+    serializer = CallLogSerializer(data=request.data)
     if serializer.is_valid():
         lead = serializer.validated_data.get('lead_id')
         serializer.save(organization=lead.organization)
@@ -340,4 +347,48 @@ def lead_bulk_add(request):
     return success_response(data=stats, message='Bulk lead operation summary')
 
 
-    
+# analytics
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_total_lead(request):
+    try:
+        user = request.user
+        organization = user.organization
+
+        # Get all leads for this organization
+        leads = Lead.objects.filter(organization=organization)
+
+        # Get all statuses
+        statuses = LeadStatus.objects.filter(organization=organization)
+
+        # --- Status-wise total lead counts ---
+        status_counts = {}
+        for status in statuses:
+            count = leads.filter(lead_status=status).count()
+            status_counts[status.name.lower()] = count
+
+        # --- Get users with assigned leads in this org ---
+        users = CustomUser.objects.filter(leads_assigned__organization=organization).distinct()
+
+        # --- Prepare user_list with per-status counts ---
+        user_list = []
+        for user in users:
+            user_data = {
+                "name": user.full_name
+            }
+            for status in statuses:
+                count = leads.filter(lead_status=status,assigned=user).count()
+                user_data[status.name.lower()] = count
+
+            user_list.append(user_data)
+
+        # Final response
+        return success_response(data={
+            "total_lead": leads.count(),
+            **status_counts,
+            "user_list": user_list
+        })
+
+    except Exception as e:
+        # Log error if needed: logger.error(str(e))
+        return error_response(message=str(e))

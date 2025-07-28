@@ -11,6 +11,7 @@ from rest_framework import permissions
 from accounts import ulrs as account_urls
 from lead import urls as lead_urls
 from notification import urls as notification_urls
+from inventory import urls as inventory_urls
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -30,6 +31,7 @@ urlpatterns = [
     path("account/", include(account_urls)),
     path("lead/", include(lead_urls)),
     path('notification/', include(notification_urls)),
+    path('inventory/', include(inventory_urls)),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 if settings.DEBUG:

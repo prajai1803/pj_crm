@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-3f=lfo%q-5975q2$tl!!g3e06fd&+pdpeihfg_#2fp4zky3w)k'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'rest_framework',
     'rest_framework_simplejwt',
+    'inventory',
     'organizations',
     'accounts',
     'lead',
@@ -84,11 +85,15 @@ WSGI_APPLICATION = 'pj_crm.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'pj_crm',
+        # 'NAME': 'my_new_database',
+        'USER': 'root',
+        'PASSWORD': 'prakhar02',
+        'HOST': '127.0.0.1',
+        'PORT': '3306',
+        }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators

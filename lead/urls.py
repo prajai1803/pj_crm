@@ -2,6 +2,7 @@ from django.urls import path
 from .views import get_all_leads,create_lead,get_all_lead_cards,update_lead,delete_lead,lead_initial_data, get_lead
 from .views import create_lead_reminder, delete_lead_reminder, fetch_reminder
 from .views import lead_bulk_add
+from .views import get_total_lead
 urlpatterns = [
     path('get-leads', get_all_leads, name='get leads'),
     path('get-leadcards', get_all_lead_cards, name='get leads'),
@@ -18,6 +19,9 @@ urlpatterns = [
     
     #Lead Bulk Upload
     path('bulk-add', lead_bulk_add, name='lead bulk add'),
+    
+    # Lead analytics
+    path('analytics/get-total-leads', get_total_lead, name='total leads')
      
      
 ]

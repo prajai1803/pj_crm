@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Lead, CallLogs
+from .models import Lead, CallLog
 from .models import LeadReminder, LeadReminderGuest
 
 class LeadSerializer(serializers.ModelSerializer):
@@ -14,9 +14,9 @@ class LeadCardSerializer(serializers.ModelSerializer):
         model = Lead
         fields = ['id','lead_name','contact_number','lead_status','assigned', 'created_on', 'updated_on', 'lead_status_name']
 
-class CallLogsSerializer(serializers.ModelSerializer):
+class CallLogSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CallLogs
+        model = CallLog
         fields = '__all__'
 
 

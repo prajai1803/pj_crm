@@ -82,7 +82,7 @@ class LeadHistory(models.Model):
         return f"{self.lead_id.lead_name} ➡ {self.status}"
         
 
-class CallLogs(models.Model):
+class CallLog(models.Model):
 
     CALL_TYPE_CHOICES = (
         (1, 'Incoming'),
@@ -95,6 +95,8 @@ class CallLogs(models.Model):
     called_time = models.DateTimeField()
     call_duration = models.IntegerField(help_text="Duration in seconds")
     lead_id = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='leads')
+    created_on = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='call_logs', null=True)
 
     def __str__(self):

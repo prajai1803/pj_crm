@@ -1,11 +1,11 @@
 from drf_yasg.utils import swagger_auto_schema
-from .serializers import CallLogsSerializer, LeadCardSerializer, LeadSerializer
+from .serializers import CallLogSerializer, LeadCardSerializer, LeadSerializer
 from drf_yasg import openapi
 
 
 call_log_create = swagger_auto_schema(
     method='put',
-    request_body=CallLogsSerializer,
+    request_body=CallLogSerializer,
     operation_summary="Update Profile",
     operation_description="Updates a user's profile.",
     responses={
