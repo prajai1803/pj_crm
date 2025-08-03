@@ -107,6 +107,9 @@ def get_all_lead_cards(request):
     user_id = user.id
     user_type = user.user_type
     organization = user.organization
+    search_key = request.query_params.get('searchKey', '').strip()
+    
+    ColorPrintUtils.success_print(search_key)
 
     lead_status_parse = []
     try:
@@ -125,7 +128,15 @@ def get_all_lead_cards(request):
         else:
             return error_response(message="Unauthorized user type")
 
-        # ✅ Count statuses BEFORE any filtering
+        # ✅ Apply search filter if searchKey is present
+        if search_key:
+            base_leads = base_leads.filter(
+                Q(lead_name__icontains=search_key) |
+                Q(contact_number__icontains=search_key) |
+                Q(email__icontains=search_key)
+            )
+
+        # ✅ Count statuses BEFORE applying lead_status filter
         status_map = {
             "fresh": "Fresh",
             "follow": "Follow Up",
@@ -139,7 +150,7 @@ def get_all_lead_cards(request):
             count = base_leads.filter(lead_status__name__iexact=status_name).count()
             status_counts[key] = count
 
-        # ✅ Now apply lead_status filter if needed (only for the list)
+        # ✅ Apply lead_status filter if provided
         leads = base_leads
         if lead_status_parse:
             leads = leads.filter(lead_status__in=lead_status_parse)
@@ -162,7 +173,10 @@ def get_all_lead_cards(request):
 
     except Exception as e:
         ColorPrintUtils.error_print(e)
-        return error_response(message=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return error_response(
+            message=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 
@@ -387,6 +401,32 @@ def get_total_lead(request):
             "total_lead": leads.count(),
             **status_counts,
             "user_list": user_list
+        })
+
+    except Exception as e:
+        # Log error if needed: logger.error(str(e))
+        return error_response(message=str(e))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_lead_call_analytics(request):
+    try:
+        user = request.user
+        organization = user.organization
+
+        # Get all call logs for this organization
+        call_logs = CallLog.objects.filter(organization=organization)
+
+        # --- Total calls ---
+        total_calls = call_logs.count()
+        
+        # --- Attepmt Call ---
+        attempt_calls = call_logs.filter(call_duration__gt=0).count()  
+
+        return success_response(data={
+            "total_calls": total_calls,
+            "attempt_calls": attempt_calls
         })
 
     except Exception as e:
