@@ -105,11 +105,18 @@ class CallLog(models.Model):
 
 # Lead Reminders
 class LeadReminder(models.Model):
+    PRIORITY_CHOICES = [
+        ('Low', 'Low'),
+        ('Medium', 'Medium'),
+        ('High', 'High'),
+    ]
+
     lead_id = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='lead_reminder')
     title = models.TextField()
     description = models.TextField(max_length=225, null=True, blank=True)
     follow_up = models.ForeignKey(LeadFollowUp, on_delete=models.SET_NULL, null=True)
     meeting_link = models.URLField(max_length=255, null=True, blank=True)
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, null=True, blank=True)
     reminder_date = models.DateTimeField()
     created_on = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
@@ -117,6 +124,7 @@ class LeadReminder(models.Model):
 
     def __str__(self):
         return str(self.title)
+
 
 class LeadReminderGuest(models.Model):
     lead_reminder = models.ForeignKey(LeadReminder, on_delete=models.CASCADE, related_name='guests')

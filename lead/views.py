@@ -256,6 +256,16 @@ def add_call_log(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_lead_reminder(request):
+    # ColorPrintUtils.success_print("Creating lead reminder")
+    user = request.user
+    user_id = user.id
+    organization = user.organization
+    
+    data = request.data.copy()
+    data['created_by'] = user_id
+    data['organization'] = organization.id  # Ensure organization is set
+    
+    print(data)
     serializer = LeadReminderSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
@@ -360,6 +370,21 @@ def lead_bulk_add(request):
 
     return success_response(data=stats, message='Bulk lead operation summary')
 
+
+# my follow up
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_my_follow_up(request):
+    user = request.user
+    user_id = user.id
+    organization = user.organization
+
+    try:
+        LeadFollowUp
+        return success_response(data={})
+
+    except Exception as e:
+        return error_response(message=str(e))
 
 # analytics
 @api_view(['GET'])
