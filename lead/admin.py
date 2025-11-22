@@ -18,18 +18,18 @@ class LeadAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_on'  # Date-based drilldown navigation
     list_per_page = 25  # Pagination control
     readonly_fields = ('created_on', 'updated_on')  # If you want to make them non-editable
-    fieldsets = (
-        (None, {
-            'fields': ('lead_name', 'contact_number', 'email', 'gender')
-        }),
-        ('Source & Status', {
-            'fields': ('lead_source', 'lead_status')
-        }),
-        ('Timestamps', {
-            'fields': ('created_on', 'updated_on'),
-            'classes': ('collapse',),
-        }),
-    )
+    # fieldsets = (
+    #     (None, {
+    #         'fields': ('lead_name', 'contact_number', 'email', 'gender')
+    #     }),
+    #     ('Source & Status', {
+    #         'fields': ('lead_source', 'lead_status')
+    #     }),
+    #     ('Timestamps', {
+    #         'fields': ('created_on', 'updated_on'),
+    #         'classes': ('collapse',),
+    #     }),
+    # )
 
 
 @admin.register(CallLog)

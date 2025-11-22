@@ -13,6 +13,7 @@ from .models import LeadReminder, LeadReminderGuest
 from accounts.models import CustomUser
 from rest_framework.pagination import PageNumberPagination
 import json
+from datetime import datetime
 from utils.color_prints import ColorPrintUtils
 from django.db.models import F, Count, Q
 from utils.response import success_response, error_response
@@ -30,7 +31,7 @@ def lead_initial_data(request):
         lead_statuses = LeadStatus.objects.filter(organization=organization).values('id', 'name', 'name_alias')
         lead_genders = LeadGender.objects.filter(organization=organization).values('id', 'name')
         lead_follow_ups = LeadFollowUp.objects.filter(organization=organization).values('id', 'name')
-        users = CustomUser.objects.filter(organization=organization).values('id', 'full_name')
+        users = CustomUser.objects.filter(organization=organization).annotate(name=F('full_name')).values('id', 'name')
         return success_response(
             data={
                 "lead_sources": list(lead_sources),
@@ -256,21 +257,21 @@ def add_call_log(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_lead_reminder(request):
-    # ColorPrintUtils.success_print("Creating lead reminder")
-    user = request.user
-    user_id = user.id
-    organization = user.organization
-    
-    data = request.data.copy()
-    data['created_by'] = user_id
-    data['organization'] = organization.id  # Ensure organization is set
-    
-    print(data)
-    serializer = LeadReminderSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return success_response(message='message', data=serializer.data)
-    return error_response(message=serializer.errors)
+    try:
+        data = request.data.copy()
+        user = request.user
+
+        data['created_by'] = user.id
+        data['organization'] = user.organization.id if user.organization else None
+
+        serializer = LeadReminderSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return success_response(message='Lead reminder created successfully', data=serializer.data)
+
+        return error_response(message=serializer.errors)
+    except Exception as e:
+        return error_response(message=f"An error occurred: {str(e)}")
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
@@ -318,6 +319,53 @@ def fetch_reminder(request):
 
         return success_response(data=paginated_data, message="Successfully fetched reminders")
     
+    except Exception as e:
+        return error_response(message=f"An error occurred: {str(e)}")
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def fetch_myfollowup(request):
+    try:
+        query = request.query_params
+        event_type = query.get('event')  # expected: today | missed | future
+        user = request.user
+
+        now = datetime.now()
+        today_start = datetime.combine(now.date(), datetime.min.time())
+        today_end = datetime.combine(now.date(), datetime.max.time())
+
+        reminder_filters = {
+            'created_by_id': user.id,
+        }
+
+        if event_type == 'today':
+            reminder_filters['reminder_date__range'] = (today_start, today_end)
+        elif event_type == 'missed':
+            reminder_filters['reminder_date__lt'] = today_start
+        elif event_type == 'future':
+            reminder_filters['reminder_date__gt'] = today_end
+        else:
+            return error_response("Invalid event type. Use 'today', 'missed', or 'future'.")
+
+        reminders = LeadReminder.objects.filter(**reminder_filters) \
+            .select_related('lead_id') \
+            .prefetch_related('guests') \
+            .order_by('-created_on')
+        
+        paginator = PageNumberPagination()
+        paginator.page_size = 10
+        paginated_reminders = paginator.paginate_queryset(reminders, request)
+        serializer = LeadReminderSerializer(paginated_reminders, many=True)
+
+        paginated_data = {
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "results": serializer.data
+        }
+
+        return success_response(data=paginated_data, message="Successfully fetched reminders")
+
     except Exception as e:
         return error_response(message=f"An error occurred: {str(e)}")
 
@@ -370,21 +418,36 @@ def lead_bulk_add(request):
 
     return success_response(data=stats, message='Bulk lead operation summary')
 
-
-# my follow up
-@api_view(['GET'])
+@api_view(['PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
-def get_my_follow_up(request):
-    user = request.user
-    user_id = user.id
-    organization = user.organization
-
+def update_reminder(request, reminder_id):
     try:
-        LeadFollowUp
-        return success_response(data={})
+        user = request.user
+
+        # Fetch reminder (ensure it belongs to same organization)
+        try:
+            reminder = LeadReminder.objects.get(
+                id=reminder_id,
+                organization=user.organization
+            )
+        except LeadReminder.DoesNotExist:
+            return error_response(message="Reminder not found")
+
+        serializer = LeadReminderSerializer(reminder, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return success_response(
+                message="Reminder updated successfully",
+                data=serializer.data
+            )
+
+        return error_response(message=serializer.errors)
 
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(message=f"An error occurred: {str(e)}")
+
+
+
 
 # analytics
 @api_view(['GET'])

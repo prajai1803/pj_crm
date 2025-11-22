@@ -42,6 +42,8 @@ class LeadReminderSerializer(serializers.ModelSerializer):
     )
     # add read-only version
     guest_emails_read = serializers.SerializerMethodField(read_only=True)
+    # 🔥 Correct relation to fetch Lead name
+    lead_name = serializers.CharField(source='lead_id.lead_name', read_only=True)
 
     class Meta:
         model = LeadReminder

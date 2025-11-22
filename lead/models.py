@@ -2,14 +2,12 @@ from django.db import models
 from accounts.models import CustomUser
 from organizations.models import Organization
 
-
 class LeadSource(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_on = models.DateTimeField(auto_now_add=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='lead_source', null=True)
-
 
     def __str__(self):
         return self.name
@@ -83,7 +81,6 @@ class LeadHistory(models.Model):
         
 
 class CallLog(models.Model):
-
     CALL_TYPE_CHOICES = (
         (1, 'Incoming'),
         (2, 'Outgoing'),
@@ -105,25 +102,30 @@ class CallLog(models.Model):
 
 # Lead Reminders
 class LeadReminder(models.Model):
-    PRIORITY_CHOICES = [
-        ('Low', 'Low'),
-        ('Medium', 'Medium'),
-        ('High', 'High'),
-    ]
+    class Priority(models.TextChoices):
+        HIGH = 'HIGH', 'High'
+        MEDIUM = 'MEDIUM', 'Medium'
+        LOW = 'LOW', 'Low'
 
     lead_id = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='lead_reminder')
     title = models.TextField()
     description = models.TextField(max_length=225, null=True, blank=True)
     follow_up = models.ForeignKey(LeadFollowUp, on_delete=models.SET_NULL, null=True)
     meeting_link = models.URLField(max_length=255, null=True, blank=True)
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, null=True, blank=True)
     reminder_date = models.DateTimeField()
+    priority = models.CharField(
+        max_length=10,
+        choices=Priority.choices,
+        default=Priority.MEDIUM
+    )
+    is_completed = models.BooleanField(default=False)
     created_on = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='lead_reminder', null=True)
 
     def __str__(self):
         return str(self.title)
+
 
 
 class LeadReminderGuest(models.Model):

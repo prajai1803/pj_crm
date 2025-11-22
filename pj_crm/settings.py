@@ -89,7 +89,7 @@ DATABASES = {
         'NAME': 'pj_crm',
         # 'NAME': 'my_new_database',
         'USER': 'root',
-        'PASSWORD': 'prakhar02',
+        'PASSWORD': 'Prakhar@02',
         'HOST': '127.0.0.1',
         'PORT': '3306',
         }
