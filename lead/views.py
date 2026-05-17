@@ -336,6 +336,7 @@ def fetch_myfollowup(request):
 
         reminder_filters = {
             'created_by_id': user.id,
+            'is_completed': False
         }
 
         if event_type == 'today':
