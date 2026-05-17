@@ -6,33 +6,39 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from lead.serializers import LeadReminderSerializer, LeadSerializer, LeadCardSerializer, CallLogsSerializer
-from .models import Lead, CallLogs
+from lead.serializers import LeadReminderSerializer, LeadSerializer, LeadCardSerializer, CallLogSerializer
+from .models import Lead, CallLog
 from lead.models import LeadFollowUp, LeadSource, LeadStatus,LeadGender
 from .models import LeadReminder, LeadReminderGuest
 from accounts.models import CustomUser
 from rest_framework.pagination import PageNumberPagination
 import json
+from datetime import datetime
 from utils.color_prints import ColorPrintUtils
-from django.db.models import F
+from django.db.models import F, Count, Q
 from utils.response import success_response, error_response
 from .swagger_schemas import get_lead_schema, add_lead
 
 
 @api_view(['GET'])
 def lead_initial_data(request):
+    user = request.user
+    user_id = user.id
+    user_type = user.user_type
+    organization = user.organization
     try:
-        lead_sources = LeadSource.objects.filter(organization=1).values('id', 'name')
-        lead_statuses = LeadStatus.objects.filter(organization=1).values('id', 'name', 'name_alias')
-        lead_genders = LeadGender.objects.filter(organization=1).values('id', 'name')
-        lead_follow_ups = LeadFollowUp.objects.filter(organization=1).values('id', 'name')
-
+        lead_sources = LeadSource.objects.filter(organization=organization).values('id', 'name')
+        lead_statuses = LeadStatus.objects.filter(organization=organization).values('id', 'name', 'name_alias')
+        lead_genders = LeadGender.objects.filter(organization=organization).values('id', 'name')
+        lead_follow_ups = LeadFollowUp.objects.filter(organization=organization).values('id', 'name')
+        users = CustomUser.objects.filter(organization=organization).annotate(name=F('full_name')).values('id', 'name')
         return success_response(
             data={
                 "lead_sources": list(lead_sources),
                 "lead_statuses": list(lead_statuses),
                 "lead_genders": list(lead_genders),
                 "lead_follow_ups": list(lead_follow_ups),
+                "users": list(users),
             },
             status_code=200,
             message='Successfully Fetched',
@@ -59,6 +65,8 @@ def create_lead(request):
         data = request.data.copy()
         contact_number = data.get('contact_number')
         organization = data.get('organization')  # or adjust according to your model
+        
+        print("User organization ID:", organization)
 
         # Check for existing lead
         if Lead.objects.filter(contact_number=contact_number, organization=organization).exists():
@@ -99,7 +107,10 @@ def get_all_lead_cards(request):
     user = request.user
     user_id = user.id
     user_type = user.user_type
-    organization = user.organization  # assuming this exists
+    organization = user.organization
+    search_key = request.query_params.get('searchKey', '').strip()
+    
+    ColorPrintUtils.success_print(search_key)
 
     lead_status_parse = []
     try:
@@ -110,38 +121,50 @@ def get_all_lead_cards(request):
         lead_status_parse = []
 
     try:
-        # Base queryset
+        # Base queryset (unfiltered)
         if user_type == 'Admin':
-            leads = Lead.objects.filter(organization=organization)
+            base_leads = Lead.objects.filter(organization=organization)
         elif user_type == 'Telecaller':
-            leads = Lead.objects.filter(assigned=user_id)
+            base_leads = Lead.objects.filter(assigned=user_id)
         else:
             return error_response(message="Unauthorized user type")
 
-        if lead_status_parse:
-            leads = leads.filter(lead_status__in=lead_status_parse)
+        # ✅ Apply search filter if searchKey is present
+        if search_key:
+            base_leads = base_leads.filter(
+                Q(lead_name__icontains=search_key) |
+                Q(contact_number__icontains=search_key) |
+                Q(email__icontains=search_key)
+            )
 
-        # Annotated status counts
+        # ✅ Count statuses BEFORE applying lead_status filter
         status_map = {
             "fresh": "Fresh",
-            "follow": "Follow",
+            "follow": "Follow Up",
             "won": "Won",
+            "re-enquired": "Re-Enquired",
             "close": "Close",
         }
 
         status_counts = {}
         for key, status_name in status_map.items():
-            count = leads.filter(lead_status__name__iexact=status_name).count()
+            count = base_leads.filter(lead_status__name__iexact=status_name).count()
             status_counts[key] = count
 
-        # Paginate and serialize
+        # ✅ Apply lead_status filter if provided
+        leads = base_leads
+        if lead_status_parse:
+            leads = leads.filter(lead_status__in=lead_status_parse)
+
         leads = leads.order_by("-updated_on")
+
+        # Paginate and serialize
         paginator = PageNumberPagination()
         result_page = paginator.paginate_queryset(leads, request)
         serializer = LeadCardSerializer(result_page, many=True)
         paginated_data = paginator.get_paginated_response(serializer.data).data
 
-        # Merge custom counts into paginated data
+        # Merge counts with paginated data
         response_data = {
             **status_counts,
             **paginated_data,
@@ -151,7 +174,11 @@ def get_all_lead_cards(request):
 
     except Exception as e:
         ColorPrintUtils.error_print(e)
-        return error_response(message=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return error_response(
+            message=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 
 
 
@@ -215,7 +242,7 @@ def delete_lead(request, lead_id):
 
 @api_view(['POST'])
 def add_call_log(request):
-    serializer = CallLogsSerializer(data=request.data)
+    serializer = CallLogSerializer(data=request.data)
     if serializer.is_valid():
         lead = serializer.validated_data.get('lead_id')
         serializer.save(organization=lead.organization)
@@ -230,11 +257,21 @@ def add_call_log(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_lead_reminder(request):
-    serializer = LeadReminderSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return success_response(message='message', data=serializer.data)
-    return error_response(message=serializer.errors)
+    try:
+        data = request.data.copy()
+        user = request.user
+
+        data['created_by'] = user.id
+        data['organization'] = user.organization.id if user.organization else None
+
+        serializer = LeadReminderSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return success_response(message='Lead reminder created successfully', data=serializer.data)
+
+        return error_response(message=serializer.errors)
+    except Exception as e:
+        return error_response(message=f"An error occurred: {str(e)}")
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
@@ -284,3 +321,203 @@ def fetch_reminder(request):
     
     except Exception as e:
         return error_response(message=f"An error occurred: {str(e)}")
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def fetch_myfollowup(request):
+    try:
+        query = request.query_params
+        event_type = query.get('event')  # expected: today | missed | future
+        user = request.user
+
+        now = datetime.now()
+        today_start = datetime.combine(now.date(), datetime.min.time())
+        today_end = datetime.combine(now.date(), datetime.max.time())
+
+        reminder_filters = {
+            'created_by_id': user.id,
+            'is_completed': False
+        }
+
+        if event_type == 'today':
+            reminder_filters['reminder_date__range'] = (today_start, today_end)
+        elif event_type == 'missed':
+            reminder_filters['reminder_date__lt'] = today_start
+        elif event_type == 'future':
+            reminder_filters['reminder_date__gt'] = today_end
+        else:
+            return error_response("Invalid event type. Use 'today', 'missed', or 'future'.")
+
+        reminders = LeadReminder.objects.filter(**reminder_filters) \
+            .select_related('lead_id') \
+            .prefetch_related('guests') \
+            .order_by('-created_on')
+        
+        paginator = PageNumberPagination()
+        paginator.page_size = 10
+        paginated_reminders = paginator.paginate_queryset(reminders, request)
+        serializer = LeadReminderSerializer(paginated_reminders, many=True)
+
+        paginated_data = {
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "results": serializer.data
+        }
+
+        return success_response(data=paginated_data, message="Successfully fetched reminders")
+
+    except Exception as e:
+        return error_response(message=f"An error occurred: {str(e)}")
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def lead_bulk_add(request):
+    user = request.user
+    data = request.data.copy()
+    leads_data = data.get('leads', [])
+
+    if not leads_data:
+        return error_response(message='No leads data provided')
+
+    organization_id = user.organization.id
+
+    stats = {
+        "total_leads": len(leads_data),
+        "inserts": 0,
+        "duplicate": 0,
+        "rejected": 0
+    }
+
+    for lead_data in leads_data:
+        # Add metadata
+        lead_data['created_by'] = user.id
+        lead_data['updated_by'] = user.id
+        lead_data['organization'] = organization_id
+        
+
+        if not lead_data.get('assigned'):
+            lead_data['assigned'] = user.id
+
+        contact_number = lead_data.get('contact_number')
+        is_duplicate = False
+
+        if contact_number:
+            if Lead.objects.filter(organization_id=organization_id, contact_number=contact_number).exists():
+                stats['duplicate'] += 1
+                is_duplicate = True
+
+        if is_duplicate:
+            continue
+
+        serializer = LeadSerializer(data=lead_data)
+        if serializer.is_valid():
+            serializer.save()
+            stats['inserts'] += 1
+        else:
+            stats['rejected'] += 1
+
+    return success_response(data=stats, message='Bulk lead operation summary')
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def update_reminder(request, reminder_id):
+    try:
+        user = request.user
+
+        # Fetch reminder (ensure it belongs to same organization)
+        try:
+            reminder = LeadReminder.objects.get(
+                id=reminder_id,
+                organization=user.organization
+            )
+        except LeadReminder.DoesNotExist:
+            return error_response(message="Reminder not found")
+
+        serializer = LeadReminderSerializer(reminder, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return success_response(
+                message="Reminder updated successfully",
+                data=serializer.data
+            )
+
+        return error_response(message=serializer.errors)
+
+    except Exception as e:
+        return error_response(message=f"An error occurred: {str(e)}")
+
+
+
+
+# analytics
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_total_lead(request):
+    try:
+        user = request.user
+        organization = user.organization
+
+        # Get all leads for this organization
+        leads = Lead.objects.filter(organization=organization)
+
+        # Get all statuses
+        statuses = LeadStatus.objects.filter(organization=organization)
+
+        # --- Status-wise total lead counts ---
+        status_counts = {}
+        for status in statuses:
+            count = leads.filter(lead_status=status).count()
+            status_counts[status.name.lower()] = count
+
+        # --- Get users with assigned leads in this org ---
+        users = CustomUser.objects.filter(leads_assigned__organization=organization).distinct()
+
+        # --- Prepare user_list with per-status counts ---
+        user_list = []
+        for user in users:
+            user_data = {
+                "name": user.full_name
+            }
+            for status in statuses:
+                count = leads.filter(lead_status=status,assigned=user).count()
+                user_data[status.name.lower()] = count
+
+            user_list.append(user_data)
+
+        # Final response
+        return success_response(data={
+            "total_lead": leads.count(),
+            **status_counts,
+            "user_list": user_list
+        })
+
+    except Exception as e:
+        # Log error if needed: logger.error(str(e))
+        return error_response(message=str(e))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_lead_call_analytics(request):
+    try:
+        user = request.user
+        organization = user.organization
+
+        # Get all call logs for this organization
+        call_logs = CallLog.objects.filter(organization=organization)
+
+        # --- Total calls ---
+        total_calls = call_logs.count()
+        
+        # --- Attepmt Call ---
+        attempt_calls = call_logs.filter(call_duration__gt=0).count()  
+
+        return success_response(data={
+            "total_calls": total_calls,
+            "attempt_calls": attempt_calls
+        })
+
+    except Exception as e:
+        # Log error if needed: logger.error(str(e))
+        return error_response(message=str(e))

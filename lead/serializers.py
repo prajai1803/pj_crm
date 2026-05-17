@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Lead, CallLogs
+from .models import Lead, CallLog
 from .models import LeadReminder, LeadReminderGuest
 
 class LeadSerializer(serializers.ModelSerializer):
@@ -10,13 +10,18 @@ class LeadSerializer(serializers.ModelSerializer):
 
 class LeadCardSerializer(serializers.ModelSerializer):
     lead_status_name = serializers.CharField(source='lead_status.name', read_only=True)
+    assigned_user_name = serializers.CharField(source='assigned.full_name', read_only=True)
+    assigned_user_profile_picture = serializers.ImageField(source='assigned.profile_picture', read_only=True)
     class Meta:
         model = Lead
-        fields = ['id','lead_name','contact_number','lead_status','assigned', 'created_on', 'updated_on', 'lead_status_name']
+        fields = ['id','lead_name','contact_number','lead_status','assigned', 'created_on', 'updated_on', 'lead_status_name', 'assigned_user_name', 'assigned_user_profile_picture']
+    
+    def get_assigned_user_name(self, obj):
+        return obj.assigned.get_full_name() if obj.assigned else None
 
-class CallLogsSerializer(serializers.ModelSerializer):
+class CallLogSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CallLogs
+        model = CallLog
         fields = '__all__'
 
 
@@ -37,6 +42,8 @@ class LeadReminderSerializer(serializers.ModelSerializer):
     )
     # add read-only version
     guest_emails_read = serializers.SerializerMethodField(read_only=True)
+    # 🔥 Correct relation to fetch Lead name
+    lead_name = serializers.CharField(source='lead_id.lead_name', read_only=True)
 
     class Meta:
         model = LeadReminder
